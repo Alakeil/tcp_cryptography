@@ -49,6 +49,7 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	int server_sock;    /*server socket descriptor*/
 	int lfd;				/* listen file descriptor */
 	int cfd;				/* comm file descriptor   */
 	int port;				/* server port		  */
@@ -57,9 +58,11 @@ main(int argc, char *argv[])
 	int optval;				/* socket options	  */
 	int plain_len;				/* plaintext size	  */
 	int cipher_len;				/* ciphertext size	  */
+	
 	size_t rxb;				/* received bytes	  */
 	size_t txb;				/* transmitted bytes	  */
 	struct sockaddr_in srv_addr;		/* server socket address  */
+	int addr_size=sizeof(srv_addr);
 	unsigned char *aes_key;			/* AES key		  */
 	unsigned char plaintext[BUFLEN];	/* plaintext buffer	  */
 	unsigned char ciphertext[BUFLEN];	/* plaintext buffer	  */
@@ -89,24 +92,53 @@ main(int argc, char *argv[])
 
 
 	/* socket init */
-
+	if((server_sock=socket(AF_INET,SOCK_STREAM,0))<0){
+		printf("Server socket creation failed!\n");
+		exit(EXIT_FAILURE);
+	}
 
 	/*
 	 * this will save them from:
 	 * "ERROR on binding: Address already in use"
 	 */
 
+	srv_addr.sin_family = AF_INET; 
+    srv_addr.sin_addr.s_addr = INADDR_ANY; 
+    srv_addr.sin_port = htons( DEFAULT_PORT ); 
+
 
 	/* 
 	 * bind and listen the socket
 	 * for new client connections
 	 */
+	if (bind(server_sock,(struct sockaddr *)&srv_addr,addr_size)<0){ 
+        perror("Could not bind server socket!\n"); 
+        exit(EXIT_FAILURE); 
+    } 
+	printf("Listening for connection...\n");
+    if (listen(server_sock,1)<0) 
+    { 
+        perror("Could not listen!\n"); 
+        exit(EXIT_FAILURE); 
+    } 
 
 
 	/* load keys */
 
 
 	/* accept a new client connection */
+	if ((cfd=accept(server_sock, (struct sockaddr *)&srv_addr,(socklen_t*)&addr_size))<0){ 
+        perror("Failed to accept connection!\n"); 
+        exit(EXIT_FAILURE); 
+    } 
+	printf("Connection accepted!\n");
+    if(read(cfd,plaintext,BUFLEN)<-1){
+		perror("Could not read client message!\n");
+		exit(EXIT_FAILURE);
+	}
+    printf("Client message is:%s\n",plaintext ); 
+    send(cfd , "HELLO FROM SERVER!",19,0); 
+    printf("Hello message sent\n"); 
 
 
 	/* wait for a key exchange init */

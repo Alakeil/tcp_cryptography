@@ -68,6 +68,7 @@ check_args(char *ip, unsigned char *msg, int port)
 int
 main(int argc, char *argv[])
 {
+	int client_sock;  /*socket descriptor*/
 	int cfd;				/* comm file descriptor	 */
 	int port;				/* server port		 */
 	int err;				/* errors		 */
@@ -81,7 +82,7 @@ main(int argc, char *argv[])
 	unsigned char *msg;			/* message to server	 */
 	unsigned char *aes_key;			/* AES key		 */
 	unsigned char plaintext[BUFLEN];	/* plaintext buffer	 */
-	unsigned char ciphertext[BUFLEN];	/* plaintext buffer	 */
+	unsigned char ciphertext[BUFLEN];	/* ciphertext buffer	 */
 	RSA *c_prv_key;				/* client private key	 */
 	RSA *s_pub_key;				/* server public key	 */
 
@@ -118,10 +119,23 @@ main(int argc, char *argv[])
 
 
 	/* socket init */
+	if((client_sock=socket(AF_INET,SOCK_STREAM,0))<0){
+		perror("Socket could not be created!\n");
+		exit(EXIT_FAILURE);
+	}
+	srv_addr.sin_family = AF_INET; 
+    srv_addr.sin_port = htons(port); 
 
+	if(inet_pton(AF_INET, sip, &srv_addr.sin_addr)<=0){ 
+        perror("\nInvalid address/ Address not supported \n"); 
+        exit(EXIT_FAILURE);
+    } 
 
 	/* connect to server */
-
+	if (connect(client_sock, (struct sockaddr *)&srv_addr, sizeof(srv_addr)) < 0){ 
+        perror("\nConnection Failed \n"); 
+        exit(EXIT_FAILURE);
+    } 
 
 	/* load keys */
 
@@ -132,6 +146,14 @@ main(int argc, char *argv[])
 	 * encrypt the init message
 	 * and send it to the server
 	 */
+    send(client_sock,msg,strlen(msg),0); 
+    printf("Message sent\n"); 
+    if((read(client_sock ,plaintext,BUFLEN))<0){
+		printf("Client could not read server's response!\n");
+	}
+    printf("%s\n",plaintext); 
+
+
 
 
 	/*

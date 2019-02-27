@@ -101,10 +101,17 @@ print_hex(unsigned char *data, size_t len)
 /*
  * retrieves an AES key from the key file
  */
-unsigned char *
-aes_read_key(void)
-{
-
+unsigned char *aes_read_key(void){
+	FILE *f;
+	char *q,*aes_key=NULL;
+	size_t keySize=0;
+	f=fopen("keys/aes_key.txt","r");
+	getline(&aes_key,&keySize,f);
+	q=aes_key;
+	while(*q!='\n')
+		q++;
+	q='\0';
+	return aes_key;
 }
 
 
@@ -124,11 +131,42 @@ rsa_read_key(char *kfile)
 /*
  * encrypts the data with 128-bit AES ECB
  */
-int
-aes_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-    unsigned char *iv, unsigned char *ciphertext)
-{
+int aes_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,unsigned char *iv, unsigned char *ciphertext){
+	int length,cipher_len;
+	EVP_CIPHER_CTX *ciph_context; /*Our cipher context*/
 
+	/*Initializing the cipher context*/
+	if(!(ciph_context=EVP_CIPHER_CTX_new())){
+		perror("Could not initialize cipher context!\n");
+		exit(EXIT_FAILURE);
+
+	}
+
+	/*Initializing the encryption operation with 128-bit AES ECB*/
+	if(EVP_EncryptInit_ex(ciph_context,EVP_aes_128_ecb(),NULL,key,iv)!=1){
+		perror("Failed to initialize encryption operation!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/*Providing the message to be encrypted*/
+	if(EVP_EncryptUpdate(ciph_context,ciphertext,&length,plaintext,plaintext_len)!=1){
+		perror("Could not provide message for encryption!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	cipher_len=length;
+
+	/*Finalizing encryption*/
+	if(EVP_EncryptFinal_ex(ciph_context,ciphertext+length,&length)!=1){
+		perror("Could not finalize encryption!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	cipher_len+=length;
+
+	EVP_CIPHER_CTX_free(ciph_context);
+
+	return cipher_len;
 }
 
 
