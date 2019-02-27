@@ -1,0 +1,14 @@
+CS457 Assignment 1 Solution
+---------------------------
+
+IMPORTANT: 
+The default server port is 5000. However, if many students execute the server on 
+the same CSD machine this will be a conflict. If you run your server on CSD's 
+machines, change the port with your AM, as stated in the exercise description.
+---------------------------
+
+Sample Execution:
+
+tty1 $ ./server
+
+tty2 $ ./client -i 127.0.0.1 -p 5000 -m hello_from_cs457
