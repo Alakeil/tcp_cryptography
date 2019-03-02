@@ -27,7 +27,7 @@
 /* AES block size */
 #define AES_BS 16
 
-
+int padding=RSA_PKCS1_PADDING;
 /* --------------------------- conversion helpers --------------------------- */
 
 
@@ -105,23 +105,28 @@ unsigned char *aes_read_key(void){
 	FILE *f;
 	char *q,*aes_key=NULL;
 	size_t keySize=0;
-	f=fopen("keys/aes_key.txt","r");
+	f=fopen(AES_KF,"r");
 	getline(&aes_key,&keySize,f);
 	q=aes_key;
 	while(*q!='\n')
 		q++;
-	q='\0';
-	return aes_key;
+	*q='\0';
+	return hex_to_bytes(aes_key);
 }
 
 
 /* 
  * retrieves an RSA key from the key file
  */
-RSA *
-rsa_read_key(char *kfile)
-{
-
+RSA * rsa_read_key(char *kfile){
+	FILE *f=fopen(kfile,"rb"); /*Opening a filestream to the file that contains rsa key*/
+	RSA *rsa=RSA_new(); /*Initialising a new RSA key*/
+	if(strcpy(kfile,S_PUB_KF)==0||strcpy(kfile,C_PUB_KF)==0)
+		rsa=PEM_read_RSA_PUBKEY(kfile,&rsa,NULL,NULL); /*Reading the public RSA key from file*/
+	else if(strcpy(kfile,S_PRV_KF)==0||strcpy(kfile,C_PRV_KF)==0)
+		rsa=PEM_read_RSAPrivateKey(kfile,&rsa,NULL,NULL); /*Reading the private RSA key from file*/
+	fclose(f);
+	return rsa;
 }
 
 
@@ -173,10 +178,40 @@ int aes_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
 /*
  * decrypts the data and returns the plaintext size
  */
-int
-aes_decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
-    unsigned char *iv, unsigned char *plaintext)
-{
+int aes_decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,unsigned char *iv, unsigned char *plaintext){
+	EVP_CIPHER_CTX *deciph_context;
+	int length,plain_len;
+
+	/*Initializing the decipher context*/
+	if(!(deciph_context=EVP_CIPHER_CTX_new())){
+		perror("Could not initialize decipher context!\n");
+		exit(EXIT_FAILURE);
+	} 
+
+	/*Initializing the decryption operation*/
+	if(EVP_DecryptInit_ex(deciph_context,EVP_aes_128_ecb(),NULL,key,iv)!=1){
+		perror("Could not initialise decryption operation!\n");
+		exit(EXIT_FAILURE);
+	}
+	  
+
+	/*Providing the message to be decrypted*/
+	if(EVP_DecryptUpdate(deciph_context,plaintext,&length,ciphertext,ciphertext_len)!=1){
+		perror("Could not provide message for decryption\n");
+		exit(EXIT_FAILURE);
+	}
+	plain_len=length;
+
+	/*Finalising decryption*/
+	if(EVP_DecryptFinal_ex(deciph_context,plaintext+length,&length)!=1){
+		perror("Could not finalise decryption!\n");
+		exit(EXIT_FAILURE);
+	}
+	plain_len+=length;
+
+	EVP_CIPHER_CTX_free(deciph_context);
+
+	return plain_len;
 
 }
 
@@ -187,21 +222,15 @@ aes_decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
 /*
  * RSA public key encryption
  */
-int
-rsa_pub_encrypt(unsigned char *plaintext, int plaintext_len,
-    RSA *key, unsigned char *ciphertext)
-{
-
+int rsa_pub_encrypt(unsigned char *plaintext, int plaintext_len,RSA *key, unsigned char *ciphertext){
+	
 }
 
 
 /*
  * RSA private key decryption
  */
-int
-rsa_prv_decrypt(unsigned char *ciphertext, int ciphertext_len,
-    RSA *key, unsigned char *plaintext)
-{
+int rsa_prv_decrypt(unsigned char *ciphertext, int ciphertext_len,RSA *key, unsigned char *plaintext){
 
 }
 
@@ -209,10 +238,8 @@ rsa_prv_decrypt(unsigned char *ciphertext, int ciphertext_len,
 /*
  * RSA private key encryption
  */
-int
-rsa_prv_encrypt(unsigned char *plaintext, int plaintext_len,
-    RSA *key, unsigned char *ciphertext)
-{
+int rsa_prv_encrypt(unsigned char *plaintext, int plaintext_len,RSA *key, unsigned char *ciphertext){
+	
 
 }
 
@@ -220,11 +247,8 @@ rsa_prv_encrypt(unsigned char *plaintext, int plaintext_len,
 /*
  * RSA public key decryption
  */
-int
-rsa_pub_decrypt(unsigned char *ciphertext, int ciphertext_len,
-    RSA *key, unsigned char *plaintext)
-{
-
+int rsa_pub_decrypt(unsigned char *ciphertext, int ciphertext_len,RSA *key, unsigned char *plaintext){
+	
 }
 
 
@@ -248,5 +272,7 @@ rsa_pub_priv_decrypt(unsigned char *ciphertext, int ciphertext_len,
 {
 
 }
+
+
 
 /* EOF */
