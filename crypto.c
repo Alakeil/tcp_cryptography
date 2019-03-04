@@ -121,10 +121,10 @@ unsigned char *aes_read_key(void){
 RSA * rsa_read_key(char *kfile){
 	FILE *f=fopen(kfile,"rb"); /*Opening a filestream to the file that contains rsa key*/
 	RSA *rsa=RSA_new(); /*Initialising a new RSA key*/
-	if(strcpy(kfile,S_PUB_KF)==0||strcpy(kfile,C_PUB_KF)==0)
-		rsa=PEM_read_RSA_PUBKEY(kfile,&rsa,NULL,NULL); /*Reading the public RSA key from file*/
-	else if(strcpy(kfile,S_PRV_KF)==0||strcpy(kfile,C_PRV_KF)==0)
-		rsa=PEM_read_RSAPrivateKey(kfile,&rsa,NULL,NULL); /*Reading the private RSA key from file*/
+	if(strcmp(kfile,S_PUB_KF)==0||strcmp(kfile,C_PUB_KF)==0)
+		rsa=PEM_read_RSA_PUBKEY(f,&rsa,NULL,NULL); /*Reading the public RSA key from file*/
+	else if(strcmp(kfile,S_PRV_KF)==0||strcmp(kfile,C_PRV_KF)==0)
+		rsa=PEM_read_RSAPrivateKey(f,&rsa,NULL,NULL); /*Reading the private RSA key from file*/
 	fclose(f);
 	return rsa;
 }
@@ -221,9 +221,20 @@ int aes_decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *ke
 
 /*
  * RSA public key encryption
+ * Since we are using a 2048 bit key, RSA can encrypt 2048/8=256 bytes
+ * max each time. We also use PKCS1 padding which is 11 bytes so the 
+ * text to be encrypted can be 256-11=245 bytes max each time.
  */
 int rsa_pub_encrypt(unsigned char *plaintext, int plaintext_len,RSA *key, unsigned char *ciphertext){
-	
+	int cipher_len=0;
+	if(plaintext_len<=245){
+		cipher_len=RSA_public_encrypt(plaintext_len,plaintext,ciphertext,key,padding);
+	}else{
+		q=plaintext;
+		tmpq=plaintext;
+			
+	}
+	return cipher_len;	
 }
 
 
@@ -231,7 +242,8 @@ int rsa_pub_encrypt(unsigned char *plaintext, int plaintext_len,RSA *key, unsign
  * RSA private key decryption
  */
 int rsa_prv_decrypt(unsigned char *ciphertext, int ciphertext_len,RSA *key, unsigned char *plaintext){
-
+	int plain_len=RSA_private_decrypt(ciphertext_len,ciphertext,plaintext,key,padding);
+	return plain_len;
 }
 
 
