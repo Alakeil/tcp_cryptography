@@ -85,7 +85,7 @@ main(int argc, char *argv[])
 	char iv_status[4];
 	char *sip;				/* server IP		 */
 	struct sockaddr_in srv_addr;		/* server socket address */
-	unsigned char *iv=NULL;
+	unsigned char iv[8];
 	unsigned char *msg;			/* message to server	 */
 	unsigned char aes_key[16];			/* AES key		 */
 	unsigned char ciphertext_tmp[BUFLEN];   /*buffer of first ciphertext, encrypted by client's private key*/
@@ -183,8 +183,8 @@ main(int argc, char *argv[])
 		rsa_pub_decrypt(iv_cipher_tmp,cipher_len_tmp,s_pub_key,iv_plain);
 		printf("The decrypted IV received by client is:");
 		
-		iv=iv_plain;
-		print_hex(iv,8);	
+		memcpy(iv,iv_plain,8);
+		print_hex(iv,4);	
 	}	
 
 	/* ENCRYPTING THE INITIAL MESSAGE WITH AES KEY AND SENDING IT TO SERVER*/

@@ -9,7 +9,9 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
-
+/*
+ * @author:John Korniotakis
+ */
 
 /* error reporting helpers */
 #define ERRX(ret, str) \
@@ -126,21 +128,11 @@ rsa_pub_decrypt(unsigned char *ciphertext, int ciphertext_len,
     RSA *key, unsigned char *plaintext);
 
 
-/*
- * RSA Public(Private) encryption
- */
-int
-rsa_pub_priv_encrypt(unsigned char *plaintext, int plaintext_len,
-    RSA *pub_k, RSA *priv_k, unsigned char *ciphertext);
-
 
 /*
- * RSA Public(Private) decryption
+ * Generates a random 16byte Initialization Vector for 128 AES-CBC mode.
  */
-int
-rsa_pub_priv_decrypt(unsigned char *ciphertext, int ciphertext_len,
-    RSA *pub_k, RSA *priv_k, unsigned char *plaintext);
-
+unsigned char *generateIV();
 
 #endif /* _CS457_CRYPTO_H_ */
 

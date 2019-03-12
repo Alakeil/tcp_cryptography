@@ -6,14 +6,14 @@ TARGETS = server client demo
 
 all: $(TARGETS)
 
-server: server.c cs457_crypto.o
-	$(CC) $(CFLAGS) $(LIBSSL) $^ -o $@
+server: server.c crypto.o
+	$(CC) $(CFLAGS)  $^ -o $@ $(LIBSSL)
 
-client: client.c cs457_crypto.o
-	$(CC) $(CFLAGS) $(LIBSSL) $^ -o $@
+client: client.c crypto.o
+	$(CC) $(CFLAGS)  $^ -o $@ $(LIBSSL)
 
-demo: crypto_demo.c cs457_crypto.o
-	$(CC) $(CFLAGS) $(LIBSSL) $^ -o $@
+demo: 	demo.c crypto.o
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBSSL)
 
 clean:
 	rm -f $(TARGETS) *.o

@@ -7,7 +7,12 @@
 #include <string.h>
 #include <errno.h>
 
-#include "cs457_crypto.h"
+#include "crypto.h"
+
+/*
+ * @author:John Korniotakis
+ */
+
 
 /* 
  * Default server port 
@@ -17,7 +22,7 @@
  * and select an other port by changing 
  * this value or by using -p <port> 
  */
-#define DEFAULT_PORT	5000
+#define DEFAULT_PORT	3208
 
 
 /*
@@ -50,30 +55,39 @@ int
 main(int argc, char *argv[])
 {
 	int server_sock;    /*server socket descriptor*/
-	int lfd;				/* listen file descriptor */
+
 	int cfd;				/* comm file descriptor   */
 	int port;				/* server port		  */
-	int err;				/* errors		  */
+
 	int opt;				/* cmd options		  */
-	int optval;				/* socket options	  */
+	
+	int iv_cipher_len;
+	int iv_cipher_len_tmp;
 	int plain_len;				/* plaintext size	  */
 	int cipher_len;				/* ciphertext size	  */
-	
+	int cipher_len_tmp;
 	size_t rxb;				/* received bytes	  */
-	size_t txb;				/* transmitted bytes	  */
+	
 	struct sockaddr_in srv_addr;		/* server socket address  */
 	int addr_size=sizeof(srv_addr);
+
+	
+	unsigned char iv_cipher[BUFLEN];
+	unsigned char iv_cipher_tmp[BUFLEN];
+
+	unsigned char *iv=NULL;
 	unsigned char *aes_key;			/* AES key		  */
 	unsigned char plaintext[BUFLEN];	/* plaintext buffer	  */
-	unsigned char ciphertext[BUFLEN];	/* plaintext buffer	  */
+	unsigned char ciphertext[BUFLEN];	/* ciphertext buffer	  */
+	unsigned char ciphertext_tmp[BUFLEN];	/*buffer used for the first decryption*/
 	RSA *s_prv_key;				/* server private key	  */
 	RSA *c_pub_key;				/* client public key	  */
 
 
 	/* initialize */
-	lfd = -1;
+	server_sock = -1;
 	cfd = -1;
-	optval = 1;
+
 	port = DEFAULT_PORT;
 	memset(&srv_addr, 0, sizeof(srv_addr));
 
@@ -103,8 +117,8 @@ main(int argc, char *argv[])
 	 */
 
 	srv_addr.sin_family = AF_INET; 
-    srv_addr.sin_addr.s_addr = INADDR_ANY; 
-    srv_addr.sin_port = htons( DEFAULT_PORT ); 
+    	srv_addr.sin_addr.s_addr = INADDR_ANY; 
+    	srv_addr.sin_port = htons(port ); 
 
 
 	/* 
@@ -112,49 +126,96 @@ main(int argc, char *argv[])
 	 * for new client connections
 	 */
 	if (bind(server_sock,(struct sockaddr *)&srv_addr,addr_size)<0){ 
-        perror("Could not bind server socket!\n"); 
-        exit(EXIT_FAILURE); 
-    } 
+        	perror("Could not bind server socket!\n"); 
+        	exit(EXIT_FAILURE); 
+    	} 
 	printf("Listening for connection...\n");
-    if (listen(server_sock,1)<0) 
-    { 
-        perror("Could not listen!\n"); 
-        exit(EXIT_FAILURE); 
-    } 
+    	if (listen(server_sock,3)<0) 
+    	{ 
+        	perror("Could not listen!\n"); 
+        	exit(EXIT_FAILURE); 
+    	} 
 
 
 	/* load keys */
-
+	s_prv_key=rsa_read_key(S_PRV_KF);
+	c_pub_key=rsa_read_key(C_PUB_KF);
 
 	/* accept a new client connection */
 	if ((cfd=accept(server_sock, (struct sockaddr *)&srv_addr,(socklen_t*)&addr_size))<0){ 
-        perror("Failed to accept connection!\n"); 
-        exit(EXIT_FAILURE); 
-    } 
+        	perror("Failed to accept connection!\n"); 
+        	exit(EXIT_FAILURE); 
+    	} 
 	printf("Connection accepted!\n");
-    if(read(cfd,plaintext,BUFLEN)<-1){
+	rxb=recv(cfd,ciphertext,BUFLEN,0);
+    	if((int)rxb<-1){
 		perror("Could not read client message!\n");
 		exit(EXIT_FAILURE);
 	}
-    printf("Client message is:%s\n",plaintext ); 
-    send(cfd , "HELLO FROM SERVER!",19,0); 
-    printf("Hello message sent\n"); 
 
 
-	/* wait for a key exchange init */
+	/*Decrypting the message received from client*/
+	cipher_len=rsa_prv_decrypt(ciphertext,(int)rxb,s_prv_key,ciphertext_tmp);
+	plain_len=rsa_pub_decrypt(ciphertext_tmp,cipher_len,c_pub_key,plaintext);
 
+	plaintext[plain_len]='\0';
+	if(strcmp((const char*)plaintext,"hello")==0){
+		printf("Message received is hello! Server will proceed with sending the AES key to client!\n");
 
-	/* send the AES key */
+		/*Loading the aes key from file*/
+		aes_key=aes_read_key();
+		iv=generateIV();
+		printf("The IV generated is:");
+		print_hex(iv,8);
+
+		/*With the aes key loaded, we now need to encrypt it*/
+		printf("\nTHE AES KEY LOADED IS:");
+		print_hex(aes_key,16);
+
+		cipher_len_tmp=rsa_prv_encrypt(aes_key,16,s_prv_key,ciphertext_tmp);
+		cipher_len=rsa_pub_encrypt(ciphertext_tmp,cipher_len_tmp,c_pub_key,ciphertext);
+
+		/*We need to encrypt the IV before sending it*/
+    		if(iv!=NULL){
+   			iv_cipher_len_tmp=rsa_prv_encrypt(iv,16,s_prv_key,iv_cipher_tmp);
+			iv_cipher_len=rsa_pub_encrypt(iv_cipher_tmp,iv_cipher_len_tmp,c_pub_key,iv_cipher);
+		}
+
 		
 
-	/* receive the encrypted message */
+		
 
 
-	/* Decrypt the message and print it */
+		/* send the AES key */
+		send(cfd ,ciphertext,cipher_len,0); 
+
+		/*Server must notify client if an IV will be used*/
+		if(iv==NULL){
+			printf("\nServer will not send any iv to client\n");
+			send(cfd,"NO",3,0);
+		}else{
+			printf("\nServer will send IV to client\n");
+			send(cfd,"YES",4,0);
+			send(cfd,iv_cipher,iv_cipher_len,0);
+		}
 
 
+
+		/* receive the encrypted message */
+		rxb=recv(cfd,ciphertext,BUFLEN,0);
+
+		/* Decrypt the message and print it */
+		plain_len=aes_decrypt(ciphertext,rxb,aes_key,iv,plaintext);
+		plaintext[plain_len]='\0';
+		printf("Server received from the client the following message: %s\n",plaintext);
+	}else{
+		printf("Incorrect message received! Server will now terminate connection with client!\n");
+
+	}  
 	/* cleanup */
 
+	close(server_sock);
+	close(cfd);
 	return 0;
 }
 
