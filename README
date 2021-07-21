@@ -1,7 +1,5 @@
 Name: John
 Surname: Korniotakis
-A.M.: 3208
-
 
 My implementation is actually simple and mostly revolves around how I implemented the EAS/RSA encryption/decryption functions.
 
